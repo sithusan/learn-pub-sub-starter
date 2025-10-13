@@ -32,6 +32,7 @@ func main() {
 		IsPaused: true,
 	})
 
+	// wait for keyboard interpret
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	<-signalChan
