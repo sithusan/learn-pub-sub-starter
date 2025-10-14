@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -30,7 +28,7 @@ func main() {
 
 	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, userName)
 
-	ch, queue, err := pubsub.DeclareAndBind(
+	_, _, err = pubsub.DeclareAndBind(
 		conn,
 		routing.ExchangePerilDirect,
 		queueName,
@@ -42,12 +40,39 @@ func main() {
 		log.Fatalf("Error in declaring and bind %v", err)
 	}
 
-	fmt.Println(ch, queue, queueName)
+	gameState := gamelogic.NewGameState(userName)
 
-	// wait for keyboard interpret
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
+	for {
+		words := gamelogic.GetInput()
 
-	fmt.Println("Connection to RabbitMQ was closed")
+		if len(words) == 0 {
+			continue
+		}
+
+		switch words[0] {
+		case "spawn":
+			err = gameState.CommandSpawn(words)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+		case "move":
+			_, err := gameState.CommandMove(words)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Println("Army moved")
+		case "status":
+			gameState.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			log.Println("Spamming not allowed yet!")
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			log.Println("Unknown Command")
+		}
+	}
 }
