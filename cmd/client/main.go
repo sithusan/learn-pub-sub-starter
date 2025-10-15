@@ -28,7 +28,7 @@ func main() {
 
 	queueName := fmt.Sprintf("%s.%s", routing.PauseKey, userName)
 
-	_, _, err = pubsub.DeclareAndBind(
+	_, queue, err := pubsub.DeclareAndBind(
 		conn,
 		routing.ExchangePerilDirect,
 		queueName,
@@ -39,6 +39,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error in declaring and bind %v", err)
 	}
+
+	log.Printf("Queue %v declared and bounded \n", queue.Name)
 
 	gameState := gamelogic.NewGameState(userName)
 
