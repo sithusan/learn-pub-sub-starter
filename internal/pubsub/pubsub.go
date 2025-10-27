@@ -33,7 +33,7 @@ func DeclareAndBind(
 	exchange,
 	queueName,
 	key string,
-	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	queueType SimpleQueueType,
 ) (*amqp.Channel, amqp.Queue, error) {
 
 	ch, err := conn.Channel()
@@ -56,4 +56,42 @@ func DeclareAndBind(
 	}
 
 	return ch, queue, nil
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T),
+) error {
+
+	ch, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+
+	if err != nil {
+		return err
+	}
+
+	deliveries, err := ch.Consume(queueName, "", false, false, false, false, nil)
+
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for delivery := range deliveries {
+			var unMarshalledDelivery T
+
+			if err := json.Unmarshal(delivery.Body, &unMarshalledDelivery); err != nil {
+				log.Fatalf("Error unmarshalling the delivery body %v", err)
+			}
+
+			handler(unMarshalledDelivery)
+
+			delivery.Ack(false)
+		}
+	}()
+
+	return nil
 }
