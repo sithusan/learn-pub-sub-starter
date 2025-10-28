@@ -49,17 +49,18 @@ func main() {
 		switch firstWord {
 		case routing.PauseKey:
 			log.Print("Publishing pause game state")
-			err = pubsub.PublishJSON(
+
+			if err = pubsub.PublishJSON(
 				ch,
 				routing.ExchangePerilDirect,
 				routing.PauseKey,
 				routing.PlayingState{
 					IsPaused: true,
-				})
+				}); err != nil {
 
-			if err != nil {
 				log.Printf("Could not publish time: %v", err)
 			}
+
 		case routing.ResumeKey:
 			log.Print("Publishing resume game state")
 			err = pubsub.PublishJSON(
