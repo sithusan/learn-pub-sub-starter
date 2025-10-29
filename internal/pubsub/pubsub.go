@@ -15,6 +15,14 @@ const (
 	Transient SimpleQueueType = "transient"
 )
 
+type AckType string
+
+const (
+	Ack         AckType = "Ack"
+	NackRequeue AckType = "NackRequeue"
+	NackDiscard AckType = "NackDiscard"
+)
+
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	marshalledValue, err := json.Marshal(val)
 
@@ -64,7 +72,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 
 	ch, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
@@ -87,9 +95,22 @@ func SubscribeJSON[T any](
 				log.Fatalf("Error unmarshalling the delivery body %v", err)
 			}
 
-			handler(unMarshalledDelivery)
+			acktype := handler(unMarshalledDelivery)
 
-			delivery.Ack(false)
+			if acktype == Ack {
+				delivery.Ack(false)
+				log.Print("ACK")
+			}
+
+			if acktype == NackRequeue {
+				delivery.Nack(false, true)
+				log.Print("NACK and Requeue")
+			}
+
+			if acktype == NackDiscard {
+				delivery.Nack(false, false)
+				log.Print("Nack and Discard")
+			}
 		}
 	}()
 
