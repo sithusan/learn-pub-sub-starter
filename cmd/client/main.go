@@ -127,17 +127,12 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 		defer fmt.Println()
 		moveOutCome := gs.HandleMove(am)
 
-		fmt.Println("move outcome", moveOutCome)
-
-		if moveOutCome == gamelogic.MoveOutcomeSamePlayer {
+		switch moveOutCome {
+		case gamelogic.MoveOutcomeSamePlayer:
 			return pubsub.NackDiscard
-		}
-
-		if moveOutCome == gamelogic.MoveOutComeSafe {
+		case gamelogic.MoveOutComeSafe:
 			return pubsub.Ack
-		}
-
-		if moveOutCome == gamelogic.MoveOutcomeMakeWar {
+		case gamelogic.MoveOutcomeMakeWar:
 			routingKey := fmt.Sprintf("%s.%s", routing.WarRecognitionsPrefix, gs.Player.Username)
 
 			if err := pubsub.PublishJSON(
@@ -149,10 +144,9 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 					Defender: gs.GetPlayerSnap(),
 				},
 			); err != nil {
-				log.Printf("Could not publish move outcome make war %v", err)
+				return pubsub.NackRequeue
 			}
-
-			return pubsub.NackRequeue
+			return pubsub.Ack
 		}
 
 		return pubsub.NackDiscard
