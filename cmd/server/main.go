@@ -63,15 +63,13 @@ func main() {
 
 		case routing.ResumeKey:
 			log.Print("Publishing resume game state")
-			err = pubsub.PublishJSON(
+			if err := pubsub.PublishJSON(
 				ch,
 				routing.ExchangePerilDirect,
 				routing.PauseKey,
 				routing.PlayingState{
 					IsPaused: false,
-				})
-
-			if err != nil {
+				}); err != nil {
 				log.Printf("Could not publish time: %v", err)
 			}
 		case "quit":
