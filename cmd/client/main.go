@@ -62,7 +62,7 @@ func main() {
 		warQueueName,
 		warQueueRoutingKey,
 		pubsub.Durable,
-		handlerWar(gameState),
+		handlerWar(gameState, ch),
 	)
 
 	for {
