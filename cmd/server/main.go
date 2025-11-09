@@ -27,12 +27,15 @@ func main() {
 		log.Fatalf("Error in opening channel %v", err)
 	}
 
+	key := fmt.Sprintf("%s.*", routing.GameLogSlug)
+
 	if err := pubsub.SubscribeGob(
 		conn,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
-		routing.GameLogSlug+".*",
-		pubsub.Durable, handlerLog(),
+		key,
+		pubsub.Durable,
+		handlerLog(),
 	); err != nil {
 		log.Fatalf("Error in declaring and bind %v", err)
 	}

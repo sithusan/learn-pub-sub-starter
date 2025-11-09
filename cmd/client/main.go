@@ -74,8 +74,7 @@ func main() {
 
 		switch words[0] {
 		case "spawn":
-			err = gameState.CommandSpawn(words)
-			if err != nil {
+			if err := gameState.CommandSpawn(words); err != nil {
 				log.Println(err)
 				continue
 			}
@@ -103,7 +102,10 @@ func main() {
 		case "help":
 			gamelogic.PrintClientHelp()
 		case "spam":
-			log.Println("Spamming not allowed yet!")
+			if err := gameState.CommandSpam(ch, words); err != nil {
+				log.Println(err)
+				continue
+			}
 		case "quit":
 			gamelogic.PrintQuit()
 			return
