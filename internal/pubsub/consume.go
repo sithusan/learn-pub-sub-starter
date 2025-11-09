@@ -2,14 +2,10 @@ package pubsub
 
 import (
 	"bytes"
-	"context"
 	"encoding/gob"
 	"encoding/json"
-	"fmt"
 	"log"
-	"time"
 
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -27,47 +23,6 @@ const (
 	NackRequeue
 	NackDiscard
 )
-
-func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
-	marshalledValue, err := json.Marshal(val)
-
-	if err != nil {
-		log.Fatalf("Error in marshalling value %v", err)
-	}
-
-	return ch.PublishWithContext(context.Background(), exchange, key, false, false, amqp.Publishing{
-		ContentType: "json",
-		Body:        marshalledValue,
-	})
-}
-
-func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
-	var gobedValue bytes.Buffer
-	enc := gob.NewEncoder(&gobedValue)
-
-	if err := enc.Encode(val); err != nil {
-		log.Fatalf("Error in gobbingn value %v", err)
-	}
-
-	return ch.PublishWithContext(context.Background(), exchange, key, false, false, amqp.Publishing{
-		ContentType: "json",
-		Body:        gobedValue.Bytes(),
-	})
-}
-
-func PublishGameLog(ch *amqp.Channel, message, userName string) AckType {
-	routingKey := fmt.Sprintf("%s.%s", routing.GameLogSlug, userName)
-
-	if err := PublishGob(ch, routing.ExchangePerilTopic, routingKey, routing.GameLog{
-		CurrentTime: time.Now(),
-		Message:     message,
-		Username:    userName,
-	}); err != nil {
-		return NackRequeue
-	}
-
-	return Ack
-}
 
 func DeclareAndBind(
 	conn *amqp.Connection,
@@ -110,6 +65,54 @@ func SubscribeJSON[T any](
 	handler func(T) AckType,
 ) error {
 
+	unmarshaller := func(body []byte) (T, error) {
+
+		var unMarshalledDelivery T
+
+		if err := json.Unmarshal(body, &unMarshalledDelivery); err != nil {
+			return unMarshalledDelivery, err
+		}
+
+		return unMarshalledDelivery, nil
+	}
+
+	return subscribe(conn, exchange, queueName, key, queueType, handler, unmarshaller)
+}
+
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) AckType,
+) error {
+
+	unmarshaller := func(body []byte) (T, error) {
+
+		dec := gob.NewDecoder(bytes.NewReader(body))
+
+		var decodedGob T
+
+		if err := dec.Decode(&decodedGob); err != nil {
+			return decodedGob, err
+		}
+
+		return decodedGob, nil
+	}
+
+	return subscribe(conn, exchange, queueName, key, queueType, handler, unmarshaller)
+}
+
+func subscribe[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) AckType,
+	unmarshaller func([]byte) (T, error),
+) error {
 	ch, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 
 	if err != nil {
@@ -124,13 +127,14 @@ func SubscribeJSON[T any](
 
 	go func() {
 		for delivery := range deliveries {
-			var unMarshalledDelivery T
 
-			if err := json.Unmarshal(delivery.Body, &unMarshalledDelivery); err != nil {
-				log.Fatalf("Error unmarshalling the delivery body %v", err)
+			unmarshalledVal, err := unmarshaller(delivery.Body)
+
+			if err != nil {
+				log.Fatalf("Error decoding the delivery body %v", err)
 			}
 
-			acktype := handler(unMarshalledDelivery)
+			acktype := handler(unmarshalledVal)
 
 			if acktype == Ack {
 				delivery.Ack(false)

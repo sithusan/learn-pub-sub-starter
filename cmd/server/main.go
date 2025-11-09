@@ -27,19 +27,15 @@ func main() {
 		log.Fatalf("Error in opening channel %v", err)
 	}
 
-	_, queue, err := pubsub.DeclareAndBind(
+	if err := pubsub.SubscribeGob(
 		conn,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		routing.GameLogSlug+".*",
-		pubsub.Durable,
-	)
-
-	if err != nil {
+		pubsub.Durable, handlerLog(),
+	); err != nil {
 		log.Fatalf("Error in declaring and bind %v", err)
 	}
-
-	log.Printf("Queue %v declared and bounded \n", queue.Name)
 
 	gamelogic.PrintServerHelp()
 
