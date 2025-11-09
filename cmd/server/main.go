@@ -37,13 +37,21 @@ func main() {
 		pubsub.Durable,
 		handlerLog(),
 	); err != nil {
-		log.Fatalf("Error in declaring and bind %v", err)
+		log.Fatalf("could not starting consuming logs: %v", err)
+
 	}
 
 	gamelogic.PrintServerHelp()
 
 	for {
-		firstWord := gamelogic.GetInput()[0]
+
+		inputs := gamelogic.GetInput()
+
+		if len(inputs) == 0 {
+			continue
+		}
+
+		firstWord := inputs[0]
 
 		switch firstWord {
 		case routing.PauseKey:
